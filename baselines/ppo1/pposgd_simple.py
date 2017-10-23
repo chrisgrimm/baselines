@@ -85,8 +85,10 @@ def learn(env, policy_func, *,
         max_timesteps=0, max_episodes=0, max_iters=0, max_seconds=0,  # time constraint
         callback=None, # you can do anything in the callback, since it takes locals(), globals()
         adam_epsilon=1e-5,
-        schedule='constant' # annealing for stepsize parameters (epsilon and adam)
+        schedule='constant', # annealing for stepsize parameters (epsilon and adam)
+        tb_dir=None,
         ):
+
     # Setup losses and stuff
     # ----------------------------------------
     ob_space = env.observation_space
@@ -106,13 +108,19 @@ def learn(env, policy_func, *,
     ent = pi.pd.entropy()
     meankl = U.mean(kloldnew)
     meanent = U.mean(ent)
+    tf.summary.scalar('ent', meanent)
+    tf.summary.scalar('kl', meankl)
     pol_entpen = (-entcoeff) * meanent
 
     ratio = tf.exp(pi.pd.logp(ac) - oldpi.pd.logp(ac)) # pnew / pold
     surr1 = ratio * atarg # surrogate from conservative policy iteration
     surr2 = U.clip(ratio, 1.0 - clip_param, 1.0 + clip_param) * atarg #
     pol_surr = - U.mean(tf.minimum(surr1, surr2)) # PPO's pessimistic surrogate (L^CLIP)
+    tf.summary.scalar('pol_surr', pol_surr)
+
     vf_loss = U.mean(tf.square(pi.vpred - ret))
+    tf.summary.scalar('vf_loss', vf_loss)
+
     total_loss = pol_surr + pol_entpen + vf_loss
     losses = [pol_surr, pol_entpen, vf_loss, meankl, meanent]
     loss_names = ["pol_surr", "pol_entpen", "vf_loss", "kl", "ent"]
@@ -121,9 +129,14 @@ def learn(env, policy_func, *,
     lossandgrad = U.function([ob, ac, atarg, ret, lrmult], losses + [U.flatgrad(total_loss, var_list)])
     adam = MpiAdam(var_list, epsilon=adam_epsilon)
 
+    merged = tf.summary.merge_all()
+
+
     assign_old_eq_new = U.function([],[], updates=[tf.assign(oldv, newv)
         for (oldv, newv) in zipsame(oldpi.get_variables(), pi.get_variables())])
-    compute_losses = U.function([ob, ac, atarg, ret, lrmult], losses)
+    compute_losses_and_summary = U.function([ob, ac, atarg, ret, lrmult], [losses, merged])
+    if tb_dir is not None:
+        test_writer = tf.summary.FileWriter(tb_dir)
 
     U.initialize()
     adam.sync()
@@ -188,7 +201,9 @@ def learn(env, policy_func, *,
         logger.log("Evaluating losses...")
         losses = []
         for batch in d.iterate_once(optim_batchsize):
-            newlosses = compute_losses(batch["ob"], batch["ac"], batch["atarg"], batch["vtarg"], cur_lrmult)
+            newlosses, summary = compute_losses_and_summary(batch["ob"], batch["ac"], batch["atarg"], batch["vtarg"], cur_lrmult)
+            if tb_dir is not None:
+                test_writer.add_summary(summary, iters_so_far)
             losses.append(newlosses)            
         meanlosses,_,_ = mpi_moments(losses, axis=0)
         logger.log(fmt_row(13, meanlosses))
@@ -201,6 +216,15 @@ def learn(env, policy_func, *,
         lenbuffer.extend(lens)
         rewbuffer.extend(rews)
         logger.record_tabular("EpLenMean", np.mean(lenbuffer))
+        if tb_dir is not None:
+            summ_len = tf.Summary(value=[tf.Summary.Value(tag='ep_len_mean', simple_value=np.mean(lenbuffer))])
+            test_writer.add_summary(summ_len, global_step=iters_so_far)
+            test_writer.flush()
+        logger.record_tabular("EpRewMean", np.mean(rewbuffer))
+        if tb_dir is not None:
+            summ_rew = tf.Summary(value=[tf.Summary.Value(tag='ep_rew_mean', simple_value=np.mean(rewbuffer))])
+            test_writer.add_summary(summ_rew, global_step=iters_so_far)
+            test_writer.flush()
         logger.record_tabular("EpRewMean", np.mean(rewbuffer))
         logger.record_tabular("EpThisIter", len(lens))
         episodes_so_far += len(lens)
