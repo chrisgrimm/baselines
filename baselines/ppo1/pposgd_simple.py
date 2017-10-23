@@ -86,8 +86,7 @@ def learn(env, policy_func, *,
         callback=None, # you can do anything in the callback, since it takes locals(), globals()
         adam_epsilon=1e-5,
         schedule='constant', # annealing for stepsize parameters (epsilon and adam)
-        tb_dir=None,
-        ):
+        tb_dir=None):
 
     # Setup losses and stuff
     # ----------------------------------------
