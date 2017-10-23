@@ -35,7 +35,7 @@ def main():
     parser.add_argument('--seed', help='RNG seed', type=int, default=0)
     parser.add_argument('--tb-dir', type=str, default=None)
     args = parser.parse_args()
-    train(args.env, num_timesteps=1e6, seed=args.seed, tb_dir='/Users/chris/tb_test/')#tb_dir=args.tb_dir)
+    train(args.env, num_timesteps=1e6, seed=args.seed, tb_dir=args.tb_dir)
 
 
 if __name__ == '__main__':
