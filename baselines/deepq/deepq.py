@@ -290,8 +290,9 @@ def learn(env,
             if done:
                 obs = env.reset()
                 episode_rewards.append(0.0)
-                print(len(episode_rewards))
                 reset = True
+            if internal_done:
+                print(len(episode_rewards))
 
             if t > learning_starts and t % train_freq == 0:
                 # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
