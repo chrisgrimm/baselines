@@ -31,7 +31,7 @@ def main():
         gamma=0.99,
     )
 
-    model.save('pong_model.pkl')
+    model.save('pacman_model.pkl')
     env.close()
 
 if __name__ == '__main__':
