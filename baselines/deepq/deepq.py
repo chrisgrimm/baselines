@@ -277,9 +277,13 @@ def learn(env,
             action = act(np.array(obs)[None], update_eps=update_eps, **kwargs)[0]
             env_action = action
             reset = False
-            new_obs, rew, done, _ = env.step(env_action)
+            new_obs, rew, done, info = env.step(env_action)
             # Store transition in the replay buffer.
             replay_buffer.add(obs, action, rew, new_obs, float(done))
+            if 'internal_terminal' in info:
+                internal_done = info['internal_terminal']
+            else:
+                internal_done = done
             obs = new_obs
 
             episode_rewards[-1] += rew
@@ -308,7 +312,7 @@ def learn(env,
 
             mean_100ep_reward = round(np.mean(episode_rewards[-101:-1]), 1)
             num_episodes = len(episode_rewards)
-            if done and print_freq is not None and len(episode_rewards) % print_freq == 0:
+            if internal_done and print_freq is not None and len(episode_rewards) % print_freq == 0:
                 print(f'steps {t}\nepisodes {num_episodes}\nmean 100 episode reward {mean_100ep_reward}\n% time spent exploring {int(100 * exploration.value(t))}')
                 logger.record_tabular("steps", t)
                 logger.record_tabular("episodes", num_episodes)
