@@ -2,13 +2,17 @@ from baselines import deepq
 from baselines import bench
 from baselines import logger
 from baselines.common.atari_wrappers import make_atari
+from baselines.atari_wrapper import AtariWrapper, PacmanWrapper
 
 
 def main():
     logger.configure()
-    env = make_atari('PongNoFrameskip-v4')
+    #env = make_atari('PongNoFrameskip-v4')
+    env = PacmanWrapper()
+
+
     env = bench.Monitor(env, logger.get_dir())
-    env = deepq.wrap_atari_dqn(env)
+    #env = deepq.wrap_atari_dqn(env)
 
     model = deepq.learn(
         env,
