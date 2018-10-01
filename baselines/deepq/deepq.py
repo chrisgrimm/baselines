@@ -255,8 +255,9 @@ def learn(env,
             load_variables(load_path)
             logger.log('Loaded model from {}'.format(load_path))
 
-
+        print('Here!')
         for t in range(total_timesteps):
+            print(f'{t}/{total_timesteps}')
             if callback is not None:
                 if callback(locals(), globals()):
                     break
