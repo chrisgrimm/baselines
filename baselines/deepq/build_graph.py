@@ -444,6 +444,9 @@ def build_train(make_obs_ph, q_func, num_actions, optimizer, grad_norm_clipping=
         )
         update_target = U.function([], [], updates=[update_target_expr])
 
+        all_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=tf.get_variable_scope().name)
+        saver = tf.train.Saver(var_list=all_vars)
         q_values = U.function([obs_t_input], q_t)
-
-        return act_f, train, update_target, {'q_values': q_values}
+        print('all_vars', all_vars)
+        print('q_func_vars', q_func_vars + target_q_func_vars)
+        return act_f, train, update_target, {'q_values': q_values, 'saver': saver}

@@ -89,6 +89,40 @@ def load_act(path):
     return ActWrapper.load_act(path)
 
 
+class QNetworkLearningWrapper(object):
+
+    def __init__(self, env,
+          network,
+          seed=None,
+          lr=5e-4,
+          total_timesteps=100000,
+          buffer_size=50000,
+          exploration_fraction=0.1,
+          exploration_final_eps=0.02,
+          train_freq=1,
+          batch_size=32,
+          print_freq=100,
+          checkpoint_freq=10000,
+          checkpoint_path=None,
+          learning_starts=1000,
+          gamma=1.0,
+          target_network_update_freq=500,
+          prioritized_replay=False,
+          prioritized_replay_alpha=0.6,
+          prioritized_replay_beta0=0.4,
+          prioritized_replay_beta_iters=None,
+          prioritized_replay_eps=1e-6,
+          param_noise=False,
+          callback=None,
+          load_path=None,
+          **network_kwarg):
+        pass
+
+
+
+
+
+
 def learn(env,
           network,
           seed=None,
@@ -207,6 +241,7 @@ def learn(env,
         grad_norm_clipping=10,
         param_noise=param_noise
     )
+
 
     act_params = {
         'make_obs_ph': make_obs_ph,
