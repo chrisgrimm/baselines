@@ -105,6 +105,7 @@ class QNetworkTrainingWrapper(object):
               train_freq=1,
               batch_size=32,
               print_freq=100,
+              gpu_num=-1,
               checkpoint_freq=10000,
               checkpoint_path=None,
               learning_starts=1000,
@@ -201,7 +202,7 @@ class QNetworkTrainingWrapper(object):
         self.total_timesteps = total_timesteps
         self.callback = callback
         self.env = env
-
+        use_gpu = gpu_num != -1
 
         sess = get_session()
         set_global_seeds(seed)
@@ -216,16 +217,17 @@ class QNetworkTrainingWrapper(object):
         def make_obs_ph(name):
             return ObservationInput(observation_space, name=name)
 
-        act, train, update_target, debug = deepq.build_train(
-            make_obs_ph=make_obs_ph,
-            q_func=q_func,
-            num_actions=env.action_space.n,
-            optimizer=tf.train.AdamOptimizer(learning_rate=lr),
-            gamma=gamma,
-            grad_norm_clipping=10,
-            param_noise=param_noise,
-            scope=scope,
-        )
+        with tf.device(f'/{"gpu" if use_gpu else "cpu"}:{gpu_num}'):
+            act, train, update_target, debug = deepq.build_train(
+                make_obs_ph=make_obs_ph,
+                q_func=q_func,
+                num_actions=env.action_space.n,
+                optimizer=tf.train.AdamOptimizer(learning_rate=lr),
+                gamma=gamma,
+                grad_norm_clipping=10,
+                param_noise=param_noise,
+                scope=scope,
+            )
         self.train = train
         self.update_target = update_target
         self.q_values = debug['q_values']
@@ -377,7 +379,7 @@ class QNetworkTrainingWrapper(object):
         self.saver.restore(get_session(), os.path.join(path, name))
 
 
-def make_dqn(env, scope):
+def make_dqn(env, scope, gpu_num):
     return QNetworkTrainingWrapper(
         env,
         "conv_only",
@@ -386,6 +388,7 @@ def make_dqn(env, scope):
         hiddens=[256],
         dueling=True,
         lr=1e-4,
+        gpu_num=gpu_num,
         total_timesteps=int(1e7),
         buffer_size=10000,
         exploration_fraction=0.1,
