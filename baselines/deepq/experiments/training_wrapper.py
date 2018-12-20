@@ -203,8 +203,10 @@ class QNetworkTrainingWrapper(object):
         self.callback = callback
         self.env = env
         use_gpu = gpu_num != -1
-
-        sess = get_session()
+        config = None
+        #if use_gpu:
+        #    config = tf.ConfigProto(device_count = {'GPU': gpu_num})
+        sess = get_session(num_gpu=gpu_num)
         set_global_seeds(seed)
 
         q_func = build_q_func(network, **network_kwargs)
@@ -217,7 +219,8 @@ class QNetworkTrainingWrapper(object):
         def make_obs_ph(name):
             return ObservationInput(observation_space, name=name)
 
-        with tf.device(f'/{"gpu" if use_gpu else "cpu"}:{gpu_num}'):
+
+        with tf.device(f'/{"gpu" if use_gpu else "cpu"}:{gpu_num if use_gpu else 0}'):
             act, train, update_target, debug = deepq.build_train(
                 make_obs_ph=make_obs_ph,
                 q_func=q_func,
@@ -377,6 +380,12 @@ class QNetworkTrainingWrapper(object):
 
     def restore(self, path, name):
         self.saver.restore(get_session(), os.path.join(path, name))
+
+    def clean(self):
+        sess = get_session()
+        sess.__enter__()
+        tf.reset_default_graph()
+        sess.__exit__(None, None, None)
 
 
 def make_dqn(env, scope, gpu_num):

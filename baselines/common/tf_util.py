@@ -49,22 +49,29 @@ def huber_loss(x, delta=1.0):
 # Global session
 # ================================================================
 
-def get_session(config=None):
+def get_session(config=None, num_gpu=-1):
     """Get default session or create one with a given config"""
     sess = tf.get_default_session()
     if sess is None:
-        sess = make_session(config=config, make_default=True)
+        sess = make_session(config=config, make_default=True, num_gpu=num_gpu)
     return sess
 
-def make_session(config=None, num_cpu=None, make_default=False, graph=None):
+def make_session(config=None, num_cpu=None, make_default=False, graph=None, num_gpu=-1):
     """Returns a session that will use <num_cpu> CPU's only"""
     if num_cpu is None:
         num_cpu = int(os.getenv('RCALL_NUM_CPU', multiprocessing.cpu_count()))
     if config is None:
-        config = tf.ConfigProto(
-            allow_soft_placement=True,
-            inter_op_parallelism_threads=num_cpu,
-            intra_op_parallelism_threads=num_cpu)
+        if num_gpu != -1:
+            config = tf.ConfigProto(
+                allow_soft_placement=True,
+                device_count = {'GPU': num_gpu},
+                inter_op_parallelism_threads=num_cpu,
+                intra_op_parallelism_threads=num_cpu)
+        else:
+            config = tf.ConfigProto(
+                allow_soft_placement=True,
+                inter_op_parallelism_threads=num_cpu,
+                intra_op_parallelism_threads=num_cpu)
         config.gpu_options.allow_growth = True
 
     if make_default:
