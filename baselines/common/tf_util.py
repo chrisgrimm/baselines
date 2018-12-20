@@ -62,6 +62,7 @@ def make_session(config=None, num_cpu=None, make_default=False, graph=None, num_
         num_cpu = int(os.getenv('RCALL_NUM_CPU', multiprocessing.cpu_count()))
     if config is None:
         if num_gpu != -1:
+            print('num_gpu', num_gpu)
             config = tf.ConfigProto(
                 allow_soft_placement=True,
                 device_count = {'GPU': num_gpu},
