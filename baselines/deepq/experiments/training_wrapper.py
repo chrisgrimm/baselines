@@ -118,6 +118,8 @@ class QNetworkTrainingWrapper(object):
               prioritized_replay_eps=1e-6,
               param_noise=False,
               callback=None,
+              multihead=False,
+              num_heads=1,
               load_path=None,
               **network_kwargs
               ):
@@ -209,7 +211,7 @@ class QNetworkTrainingWrapper(object):
         sess = get_session(num_gpu=gpu_num)
         set_global_seeds(seed)
 
-        q_func = build_q_func(network, **network_kwargs)
+        q_func = q_func = build_q_func(network, multihead=multihead, num_heads=num_heads, **network_kwargs)
 
         # capture the shape outside the closure so that the env object is not serialized
         # by cloudpickle when serializing make_obs_ph
@@ -230,6 +232,8 @@ class QNetworkTrainingWrapper(object):
                 grad_norm_clipping=10,
                 param_noise=param_noise,
                 scope=scope,
+                multihead=multihead,
+                num_heads=num_heads
             )
         self.train = train
         self.update_target = update_target
@@ -322,9 +326,9 @@ class QNetworkTrainingWrapper(object):
             self.perform_logging(t, internal_done)
 
 
-    def train_batch(self, time, obses_t, actions, rewards, obses_tp1, dones, weights, batch_idxes):
+    def train_batch(self, time, obses_t, actions, rewards, obses_tp1, dones, weights, batch_idxes, reward_nums):
         # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
-        td_errors = self.train(obses_t, actions, rewards, obses_tp1, dones, weights)
+        td_errors = self.train(obses_t, actions, rewards, obses_tp1, dones, weights, reward_nums)
         loss = np.mean(np.square(td_errors))
         #if self.prioritized_replay:
         #    new_priorities = np.abs(td_errors) + self.prioritized_replay_eps
@@ -369,11 +373,11 @@ class QNetworkTrainingWrapper(object):
             logger.dump_tabular()
 
 
-    def get_action(self, state):
-        return self.act(state, stochastic=False, update_eps=-1)
+    def get_action(self, state, reward_num):
+        return self.act(state, reward_num, stochastic=False, update_eps=-1)
 
-    def get_Q(self, state):
-        return self.q_values(state)
+    def get_Q(self, state, reward_num):
+        return self.q_values(state, reward_num)
 
     def save(self, path, name):
         self.saver.save(get_session(), os.path.join(path, name))
@@ -388,7 +392,7 @@ class QNetworkTrainingWrapper(object):
         sess.__exit__(None, None, None)
 
 
-def make_dqn(env, scope, gpu_num):
+def make_dqn(env, scope, gpu_num, multihead=False, num_heads=1):
     return QNetworkTrainingWrapper(
         env,
         "conv_only",
@@ -405,6 +409,8 @@ def make_dqn(env, scope, gpu_num):
         train_freq=4,
         learning_starts=10000,
         target_network_update_freq=1000,
+        multihead=multihead,
+        num_heads=num_heads,
         gamma=0.99)
 
 

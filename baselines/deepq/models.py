@@ -91,7 +91,7 @@ def cnn_to_mlp(convs, hiddens, dueling=False, layer_norm=False):
 
 
 
-def build_q_func(network, hiddens=[256], dueling=True, layer_norm=False, **network_kwargs):
+def build_q_func(network, hiddens=[256], dueling=True, layer_norm=False, multihead=False, num_heads=1, **network_kwargs):
     if isinstance(network, str):
         from baselines.common.models import get_network_builder
         network = get_network_builder(network)(**network_kwargs)
@@ -108,7 +108,9 @@ def build_q_func(network, hiddens=[256], dueling=True, layer_norm=False, **netwo
                     if layer_norm:
                         action_out = layers.layer_norm(action_out, center=True, scale=True)
                     action_out = tf.nn.relu(action_out)
-                action_scores = layers.fully_connected(action_out, num_outputs=num_actions, activation_fn=None)
+                action_scores = layers.fully_connected(action_out, num_outputs=num_actions * num_heads, activation_fn=None)
+                if multihead:
+                    action_scores = tf.reshape(action_scores, [-1, num_actions, num_heads]) # [bs, num_actions, num_heads]
 
             if dueling:
                 with tf.variable_scope("state_value"):
@@ -118,10 +120,12 @@ def build_q_func(network, hiddens=[256], dueling=True, layer_norm=False, **netwo
                         if layer_norm:
                             state_out = layers.layer_norm(state_out, center=True, scale=True)
                         state_out = tf.nn.relu(state_out)
-                    state_score = layers.fully_connected(state_out, num_outputs=1, activation_fn=None)
-                action_scores_mean = tf.reduce_mean(action_scores, 1)
+                    state_score = layers.fully_connected(state_out, num_outputs=1 * num_heads, activation_fn=None)
+                    if multihead:
+                        state_score = tf.reshape(state_score, [-1, 1, num_heads])
+                action_scores_mean = tf.reduce_mean(action_scores, 1) # [bs, num_heads]
                 action_scores_centered = action_scores - tf.expand_dims(action_scores_mean, 1)
-                q_out = state_score + action_scores_centered
+                q_out = state_score + action_scores_centered # [bs, num_actions, num_heads]
             else:
                 q_out = action_scores
             return q_out

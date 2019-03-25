@@ -143,7 +143,8 @@ def default_param_noise_filter(var):
     return False
 
 
-def build_act(make_obs_ph, q_func, num_actions, scope="deepq", reuse=None):
+def build_act(multihead_processing, make_obs_ph, q_func, num_actions, scope="deepq", multihead=False, num_heads=1,
+              reuse=None):
     """Creates the act function:
 
     Parameters
@@ -175,12 +176,19 @@ def build_act(make_obs_ph, q_func, num_actions, scope="deepq", reuse=None):
     """
     with tf.variable_scope(scope, reuse=reuse):
         observations_ph = make_obs_ph("observation")
+        reward_num_ph = tf.placeholder(tf.int32, [None], 'reward_num_ph')
+        reward_num_ph_onehot = tf.one_hot(reward_num_ph, num_heads)
+
         stochastic_ph = tf.placeholder(tf.bool, (), name="stochastic")
         update_eps_ph = tf.placeholder(tf.float32, (), name="update_eps")
 
         eps = tf.get_variable("eps", (), initializer=tf.constant_initializer(0))
 
-        q_values = q_func(observations_ph.get(), num_actions, scope="q_func")
+        q_values = q_func(observations_ph.get(), num_actions, scope="q_func") # [bs, num_actions, num_heads]
+
+        q_values = multihead_processing(q_values, reward_num_ph_onehot)
+        print('QQQ', q_values)
+
         deterministic_actions = tf.argmax(q_values, axis=1)
 
         batch_size = tf.shape(observations_ph.get())[0]
@@ -190,12 +198,12 @@ def build_act(make_obs_ph, q_func, num_actions, scope="deepq", reuse=None):
 
         output_actions = tf.cond(stochastic_ph, lambda: stochastic_actions, lambda: deterministic_actions)
         update_eps_expr = eps.assign(tf.cond(update_eps_ph >= 0, lambda: update_eps_ph, lambda: eps))
-        _act = U.function(inputs=[observations_ph, stochastic_ph, update_eps_ph],
+        _act = U.function(inputs=[observations_ph, stochastic_ph, update_eps_ph, reward_num_ph],
                          outputs=output_actions,
                          givens={update_eps_ph: -1.0, stochastic_ph: True},
                          updates=[update_eps_expr])
-        def act(ob, stochastic=True, update_eps=-1):
-            return _act(ob, stochastic, update_eps)
+        def act(ob, reward_num, stochastic=True, update_eps=-1):
+            return _act(ob, stochastic, update_eps, reward_num)
         return act
 
 
@@ -315,7 +323,8 @@ def build_act_with_param_noise(make_obs_ph, q_func, num_actions, scope="deepq", 
 
 
 def build_train(make_obs_ph, q_func, num_actions, optimizer, grad_norm_clipping=None, gamma=1.0,
-    double_q=True, scope="deepq", reuse=None, param_noise=False, param_noise_filter_func=None):
+    double_q=True, scope="deepq", reuse=None, param_noise=False, param_noise_filter_func=None,
+    multihead=False, num_heads=1):
     """Creates the train function:
 
     Parameters
@@ -369,11 +378,19 @@ def build_train(make_obs_ph, q_func, num_actions, optimizer, grad_norm_clipping=
     debug: {str: function}
         a bunch of functions to print debug data like q_values.
     """
+
+    def multihead_processing(q, rew_onehot):
+        if multihead:
+            return tf.reduce_sum(tf.reshape(rew_onehot, [-1, 1, num_heads]) * q, axis=num_heads)  # [bs, num_actions]
+        else:
+            return q
+
     if param_noise:
+        raise Exception('Not supported right now.')
         act_f = build_act_with_param_noise(make_obs_ph, q_func, num_actions, scope=scope, reuse=reuse,
             param_noise_filter_func=param_noise_filter_func)
     else:
-        act_f = build_act(make_obs_ph, q_func, num_actions, scope=scope, reuse=reuse)
+        act_f = build_act(multihead_processing, make_obs_ph, q_func, num_actions, scope=scope, reuse=reuse)
 
     with tf.variable_scope(scope, reuse=reuse):
         # set up placeholders
@@ -381,16 +398,22 @@ def build_train(make_obs_ph, q_func, num_actions, optimizer, grad_norm_clipping=
         print('obs_t_input', obs_t_input.get())
         act_t_ph = tf.placeholder(tf.int32, [None], name="action")
         rew_t_ph = tf.placeholder(tf.float32, [None], name="reward")
+        rew_num_t = tf.placeholder(tf.int32, [None], name="reward_num")
+        rew_num_t_onehot = tf.one_hot(rew_num_t, num_heads) # [bs, num_heads]
         obs_tp1_input = make_obs_ph("obs_tp1")
         done_mask_ph = tf.placeholder(tf.float32, [None], name="done")
         importance_weights_ph = tf.placeholder(tf.float32, [None], name="weight")
 
-        # q network evaluation
+
         q_t = q_func(obs_t_input.get(), num_actions, scope="q_func", reuse=True)  # reuse parameters from act
+        q_t = multihead_processing(q_t, rew_num_t_onehot)
+
         q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=tf.get_variable_scope().name + "/q_func")
 
         # target q network evalution
         q_tp1 = q_func(obs_tp1_input.get(), num_actions, scope="target_q_func")
+        q_tp1 = multihead_processing(q_tp1, rew_num_t_onehot)
+
         target_q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=tf.get_variable_scope().name + "/target_q_func")
 
         # q scores for actions which we know were selected in the given state.
@@ -399,6 +422,8 @@ def build_train(make_obs_ph, q_func, num_actions, optimizer, grad_norm_clipping=
         # compute estimate of best possible value starting from state at t + 1
         if double_q:
             q_tp1_using_online_net = q_func(obs_tp1_input.get(), num_actions, scope="q_func", reuse=True)
+            q_tp1_using_online_net = multihead_processing(q_tp1_using_online_net, rew_num_t_onehot)
+
             q_tp1_best_using_online_net = tf.argmax(q_tp1_using_online_net, 1)
             q_tp1_best = tf.reduce_sum(q_tp1 * tf.one_hot(q_tp1_best_using_online_net, num_actions), 1)
         else:
@@ -438,7 +463,8 @@ def build_train(make_obs_ph, q_func, num_actions, optimizer, grad_norm_clipping=
                 rew_t_ph,
                 obs_tp1_input,
                 done_mask_ph,
-                importance_weights_ph
+                importance_weights_ph,
+                rew_num_t,
             ],
             outputs=td_error,
             updates=[optimize_expr]
@@ -447,7 +473,7 @@ def build_train(make_obs_ph, q_func, num_actions, optimizer, grad_norm_clipping=
 
         all_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=tf.get_variable_scope().name)
         saver = tf.train.Saver(var_list=all_vars)
-        q_values = U.function([obs_t_input], q_t)
+        q_values = U.function([obs_t_input, rew_num_t], q_t)
         print('all_vars', all_vars)
         print('q_func_vars', q_func_vars + target_q_func_vars)
         return act_f, train, update_target, {'q_values': q_values, 'saver': saver}

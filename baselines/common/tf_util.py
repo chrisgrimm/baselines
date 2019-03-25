@@ -53,6 +53,8 @@ def get_session(config=None, num_gpu=-1):
     """Get default session or create one with a given config"""
     sess = tf.get_default_session()
     if sess is None:
+        #print('DEFAULT SESSION NONE')
+        #input('...')
         sess = make_session(config=config, make_default=True, num_gpu=num_gpu)
     return sess
 
