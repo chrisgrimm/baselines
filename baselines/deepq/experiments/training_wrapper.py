@@ -238,6 +238,7 @@ class QNetworkTrainingWrapper(object):
         self.train = train
         self.update_target = update_target
         self.q_values = debug['q_values']
+        self.all_q_values = debug['all_q_values']
         self.saver = debug['saver']
 
 
@@ -378,6 +379,9 @@ class QNetworkTrainingWrapper(object):
 
     def get_Q(self, state, reward_num):
         return self.q_values(state, reward_num)
+
+    def get_all_Q(self, state):
+        return self.all_q_values(state)
 
     def save(self, path, name):
         self.saver.save(get_session(), os.path.join(path, name))

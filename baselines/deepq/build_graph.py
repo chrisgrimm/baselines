@@ -405,8 +405,8 @@ def build_train(make_obs_ph, q_func, num_actions, optimizer, grad_norm_clipping=
         importance_weights_ph = tf.placeholder(tf.float32, [None], name="weight")
 
 
-        q_t = q_func(obs_t_input.get(), num_actions, scope="q_func", reuse=True)  # reuse parameters from act
-        q_t = multihead_processing(q_t, rew_num_t_onehot)
+        q_t_all = q_func(obs_t_input.get(), num_actions, scope="q_func", reuse=True)  # reuse parameters from act
+        q_t = multihead_processing(q_t_all, rew_num_t_onehot)
 
         q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=tf.get_variable_scope().name + "/q_func")
 
@@ -474,6 +474,7 @@ def build_train(make_obs_ph, q_func, num_actions, optimizer, grad_norm_clipping=
         all_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=tf.get_variable_scope().name)
         saver = tf.train.Saver(var_list=all_vars)
         q_values = U.function([obs_t_input, rew_num_t], q_t)
+        all_q_values = U.function([obs_t_input], q_t_all) # [bs, num_actions, num_heads]
         print('all_vars', all_vars)
         print('q_func_vars', q_func_vars + target_q_func_vars)
-        return act_f, train, update_target, {'q_values': q_values, 'saver': saver}
+        return act_f, train, update_target, {'q_values': q_values, 'saver': saver, 'all_q_values': all_q_values}
