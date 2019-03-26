@@ -381,7 +381,7 @@ def build_train(make_obs_ph, q_func, num_actions, optimizer, grad_norm_clipping=
 
     def multihead_processing(q, rew_onehot):
         if multihead:
-            return tf.reduce_sum(tf.reshape(rew_onehot, [-1, 1, num_heads]) * q, axis=num_heads)  # [bs, num_actions]
+            return tf.reduce_sum(tf.reshape(rew_onehot, [-1, 1, num_heads]) * q, axis=2)  # [bs, num_actions]
         else:
             return q
 
