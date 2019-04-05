@@ -388,12 +388,13 @@ class QNetworkTrainingWrapper(object):
         sess.__exit__(None, None, None)
 
 
-def make_dqn(env, scope, gpu_num):
+def make_dqn(env, scope, gpu_num, multihead=False, num_heads=1, visual=True):
+    network_type = 'conv_only' if visual else 'mlp'
+    extra_keywords = {'convs': [(32, 8, 4), (64, 4, 2), (64, 3, 1)]} if visual else dict()
     return QNetworkTrainingWrapper(
         env,
-        "conv_only",
+        network_type,
         scope=scope,
-        convs=[(32, 8, 4), (64, 4, 2), (64, 3, 1)],
         hiddens=[256],
         dueling=True,
         lr=1e-4,
@@ -405,7 +406,11 @@ def make_dqn(env, scope, gpu_num):
         train_freq=4,
         learning_starts=10000,
         target_network_update_freq=1000,
-        gamma=0.99)
+        #multihead=multihead,
+        #num_heads=num_heads,
+        gamma=0.99,
+        **extra_keywords
+    )
 
 
 
