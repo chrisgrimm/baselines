@@ -181,7 +181,6 @@ def build_act(multihead_processing, make_obs_ph, q_func, num_actions, scope="dee
 
         stochastic_ph = tf.placeholder(tf.bool, (), name="stochastic")
         update_eps_ph = tf.placeholder(tf.float32, (), name="update_eps")
-
         eps = tf.get_variable("eps", (), initializer=tf.constant_initializer(0))
 
         q_values = q_func(observations_ph.get(), num_actions, scope="q_func") # [bs, num_actions, num_heads]

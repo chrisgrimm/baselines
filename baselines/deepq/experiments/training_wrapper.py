@@ -121,6 +121,7 @@ class QNetworkTrainingWrapper(object):
               multihead=False,
               num_heads=1,
               load_path=None,
+              sess=None,
               **network_kwargs
               ):
         """Train a deepq model.
@@ -208,7 +209,9 @@ class QNetworkTrainingWrapper(object):
         config = None
         #if use_gpu:
         #    config = tf.ConfigProto(device_count = {'GPU': gpu_num})
-        sess = get_session(num_gpu=gpu_num)
+
+        #sess = get_session(num_gpu=gpu_num)
+
         set_global_seeds(seed)
 
         q_func = q_func = build_q_func(network, multihead=multihead, num_heads=num_heads, **network_kwargs)
@@ -398,7 +401,7 @@ class QNetworkTrainingWrapper(object):
 
 
 
-def make_dqn(env, scope, gpu_num, multihead=False, num_heads=1, visual=True):
+def make_dqn(env, scope, gpu_num, multihead=False, num_heads=1, visual=True, sess=None):
     network_type = 'conv_only' if visual else 'mlp'
     extra_keywords = {'convs': [(32, 8, 4), (64, 4, 2), (64, 3, 1)]} if visual else dict()
     return QNetworkTrainingWrapper(
@@ -419,6 +422,7 @@ def make_dqn(env, scope, gpu_num, multihead=False, num_heads=1, visual=True):
         multihead=multihead,
         num_heads=num_heads,
         gamma=0.99,
+        sess=sess,
         **extra_keywords
     )
 

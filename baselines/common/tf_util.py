@@ -49,12 +49,12 @@ def huber_loss(x, delta=1.0):
 # Global session
 # ================================================================
 
-def get_session(config=None, num_gpu=-1):
+def get_session(config=None, num_gpu=-1, sess=None):
     """Get default session or create one with a given config"""
+    #raise Exception('BAD')
     sess = tf.get_default_session()
     if sess is None:
         #print('DEFAULT SESSION NONE')
-        #input('...')
         sess = make_session(config=config, make_default=True, num_gpu=num_gpu)
     return sess
 
@@ -95,9 +95,14 @@ def in_session(f):
 
 ALREADY_INITIALIZED = set()
 
-def initialize():
+def initialize(sess=None):
+    if sess is not None:
+        return
     """Initialize all the uninitialized variables in the global scope."""
     new_variables = set(tf.global_variables()) - ALREADY_INITIALIZED
+    #import ipdb
+    #x = get_session()
+    #ipdb.set_trace()
     get_session().run(tf.variables_initializer(new_variables))
     ALREADY_INITIALIZED.update(new_variables)
 
