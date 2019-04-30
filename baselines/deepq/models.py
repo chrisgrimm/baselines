@@ -98,6 +98,7 @@ def build_q_func(network, hiddens=[256], dueling=True, layer_norm=False, multihe
 
     def q_func_builder(input_placeholder, num_actions, scope, reuse=False):
         with tf.variable_scope(scope, reuse=reuse):
+
             latent, _ = network(input_placeholder)
             latent = layers.flatten(latent)
 

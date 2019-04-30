@@ -20,6 +20,7 @@ from baselines.deepq.utils import ObservationInput
 
 from baselines.common.tf_util import get_session
 from baselines.deepq.models import build_q_func
+from baselines.common.models import mlp
 from baselines.atari_wrapper import AtariWrapper, PacmanWrapper
 import os
 
@@ -401,14 +402,18 @@ class QNetworkTrainingWrapper(object):
 
 
 
-def make_dqn(env, scope, gpu_num, multihead=False, num_heads=1, visual=True, sess=None):
+def make_dqn(env, scope, gpu_num, multihead=False, num_heads=1, visual=True, sess=None, single_layer=False):
     network_type = 'conv_only' if visual else 'mlp'
+    if single_layer:
+        assert not visual
     extra_keywords = {'convs': [(32, 8, 4), (64, 4, 2), (64, 3, 1)]} if visual else dict()
+    if single_layer:
+        network_type = mlp(num_layers=0, num_hidden=64)
     return QNetworkTrainingWrapper(
         env,
         network_type,
         scope=scope,
-        hiddens=[256],
+        hiddens= ([] if single_layer else [256]),
         dueling=True,
         lr=1e-4,
         gpu_num=gpu_num,

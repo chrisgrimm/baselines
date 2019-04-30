@@ -34,11 +34,8 @@ def mlp(num_layers=2, num_hidden=64, activation=tf.tanh):
 
     Parameters:
     ----------
-
     num_layers: int                 number of fully-connected layers (default: 2)
-
     num_hidden: int                 size of fully-connected layers (default: 64)
-
     activation:                     activation function (default: tf.tanh)
 
     Returns:
