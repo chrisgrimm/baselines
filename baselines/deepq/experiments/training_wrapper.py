@@ -402,20 +402,21 @@ class QNetworkTrainingWrapper(object):
 
 
 
-def make_dqn(env, scope, gpu_num, multihead=False, num_heads=1, visual=True, sess=None, single_layer=False):
+def make_dqn(env, scope, gpu_num, multihead=False, num_heads=1, visual=True, sess=None, single_layer=False,
+             nonvisual_num_hidden_layers=1, target_network_update_freq=1000, learning_rate=1e-4):
     network_type = 'conv_only' if visual else 'mlp'
     if single_layer:
         assert not visual
     extra_keywords = {'convs': [(32, 8, 4), (64, 4, 2), (64, 3, 1)]} if visual else dict()
     if single_layer:
-        network_type = mlp(num_layers=0, num_hidden=64)
+        network_type = mlp(num_layers=nonvisual_num_hidden_layers, num_hidden=64)
     return QNetworkTrainingWrapper(
         env,
         network_type,
         scope=scope,
         hiddens= ([] if single_layer else [256]),
         dueling=True,
-        lr=1e-4,
+        lr=learning_rate,
         gpu_num=gpu_num,
         total_timesteps=int(1e7),
         buffer_size=10000,
@@ -423,7 +424,7 @@ def make_dqn(env, scope, gpu_num, multihead=False, num_heads=1, visual=True, ses
         exploration_final_eps=0.01,
         train_freq=4,
         learning_starts=10000,
-        target_network_update_freq=1000,
+        target_network_update_freq=target_network_update_freq,
         multihead=multihead,
         num_heads=num_heads,
         gamma=0.99,
